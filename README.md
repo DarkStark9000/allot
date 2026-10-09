@@ -12,7 +12,7 @@ Delivery between systems is at least once. The effect on an order happens once. 
 
 | | Guarantee | How |
 |---|---|---|
-| G1 | One order per idempotency key, per user. | Key table with a request fingerprint and the stored response, per the [IETF Idempotency-Key draft](https://www.ietf.org/archive/id/draft-ietf-httpapi-idempotency-key-header-07.html). A unique constraint behind it. |
+| G1 | One order per idempotency key, per user. | Key table with a request fingerprint and the stored response, per the [IETF Idempotency-Key Internet-Draft 07](https://www.ietf.org/archive/id/draft-ietf-httpapi-idempotency-key-header-07.html) (expired April 2026; not yet an RFC). A unique constraint behind it. |
 | G2 | Each inbound event changes an order at most once. | Inbox table keyed by `(source, event_id)`, written in the same transaction as the change. |
 | G3 | An order only moves along the state machine. | One pure `order.Apply`. Every move is recorded with the event that caused it. |
 | G4 | Every rupee is accounted for, and the outside world agrees. | Double-entry ledger per order. The exchange and the gateway records must match the order's state. |
@@ -21,7 +21,7 @@ Delivery between systems is at least once. The effect on an order happens once. 
 
 ## Proof
 
-`go run ./cmd/chaos` places orders through the HTTP API with racing, retried, and reused keys. It pays them through a gateway that duplicates, delays, and reorders webhooks, and sometimes sends a failure after a success. It submits them to an exchange that rejects, drops, and goes silent after accepting. It kills relays mid-flight, expires unpaid orders while late payments are still on the way, and reconciles a registrar file with missing and wrong rows. Then it checks G1 to G6 against the database, the exchange, and the gateway.
+`go run ./cmd/chaos` places orders through the HTTP API with racing, retried, and reused keys. It pays them through a gateway that duplicates, delays, and reorders webhooks, and sometimes sends a failure after a success. It submits them to an exchange that rejects, drops, and goes silent after accepting. It stops relays mid-flight and starts new ones, so leased messages are abandoned mid-call. It expires unpaid orders while late payments are still on the way, and reconciles a registrar file with missing and wrong rows. Then it checks G1 to G6 against the database, the exchange, and the gateway.
 
 Fifty runs, seeds 1 to 50, 200 orders each, every fault on:
 
@@ -41,19 +41,26 @@ Read it this way:
 
 - **Requests:** 30,446 requests for 10,000 orders. Every racing and retried request either replayed its order (`201`) or waited (`409`), and every reused key with a new body was refused (`422`).
 - **Webhooks:** 28,893 deliveries, duplicates included, never applied an event twice.
-- **Exchange:** 9,410 calls created 8,736 exchange orders, one per submitted order. The extra calls were retries and resubmissions under the same reference.
+- **Exchange:** "exchange calls" counts order submissions, retries and dropped calls included, but not status queries. 9,410 submissions created 8,736 exchange orders. The fake exchange keeps one order per reference, so the evidence is G4: it found no exchange order under a reference allot did not create.
 - **Findings:** the 394 orders left in `accepted` are the ones the registrar file did not allot: their row was missing, or it was one of the 159 rows with wrong units, which were held back rather than applied. Each of the 394 has a `missing_allotment` finding. None was refunded or allotted by guesswork.
 
 Measured on a laptop: AMD Ryzen AI 7 350, 23 GB RAM, Windows 11, Go 1.27.0, PostgreSQL 18 in Docker. CI repeats ten runs on Linux with the race detector on the test suite.
 
 ### The harness catches the bugs it is built to catch
 
-Each row is a real bug planted in the relay, followed by one chaos run of 150 orders.
+Two classic bugs are planted in the relay behind build tags, so anyone can reproduce them. A normal build has neither. A violation is one failed check on one order or one exchange reference.
 
-| Planted bug | Result |
+```bash
+go run -tags plant_new_reference     ./cmd/chaos -runs 1 -orders 150 -seed 1
+go run -tags plant_timeout_rejection ./cmd/chaos -runs 1 -orders 150 -seed 1
+```
+
+| Planted bug | One run of 150 orders, seed 1 |
 |---|---|
-| A new exchange reference on every attempt | 233 violations of G4: orders the exchange never recorded under their reference |
-| A timeout treated as a rejection, then refunded | 15 violations of G4: refunds for orders the exchange accepted |
+| A new exchange reference on every attempt | 232 violations of G4: 132 exchange orders allot never made, and 100 accepted orders whose reference the exchange does not know |
+| A timeout treated as a rejection, then refunded | 17 violations of G4: refunds for orders the exchange accepted |
+
+The seed fixes the faults, not the timing of the relays, so the counts move a little from run to run. Every run of either bug fails.
 
 ## Run it
 
@@ -133,7 +140,7 @@ Also tested: an order the exchange never saw is sent again under the same refere
 
 ## NAV dates
 
-The fund decides the NAV by when the money and the order both reach it, compared with a cut-off. allot holds these rules as data in [`internal/navdate/rules.json`](internal/navdate/rules.json), each with an effective date and its source, and treats a rule change as a data change with a test.
+The fund decides the NAV by when the money and the order both reach it, compared with a cut-off. allot holds these rules as data in [`internal/navdate/rules.json`](internal/navdate/rules.json): one rule per category, with the date it took effect and its source. v0.1 does not choose rules by date, so a changed rule applies to every order judged after the change. The time the gateway reports the payment stands in for the time the money reaches the fund.
 
 | Scheme | Cut-off (IST) | Received by the cut-off | Received after |
 |---|---|---|---|

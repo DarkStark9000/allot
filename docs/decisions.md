@@ -23,7 +23,7 @@ When the exchange does not answer, the order moves to `submit_uncertain` and the
 
 - **Rejected:** treating a timeout as a rejection and refunding. The exchange may have accepted the order, so the investor would get both the units and the money back.
 - **Rejected:** resubmitting under a new reference. That is how one tap becomes two orders.
-- **Evidence:** both rejected designs are in the chaos report's mutation table. Each one breaks guarantee G4 within one run.
+- **Evidence:** both rejected designs are planted behind build tags, `plant_new_reference` and `plant_timeout_rejection`. Each one breaks guarantee G4 in every chaos run.
 
 ## 4. Evidence moves an order forward
 
@@ -44,7 +44,7 @@ Rupees are `int64` paise, NAV is in ten-thousandths of a rupee, and units are in
 
 ## 7. NAV rules are data, and v0.1 covers purchases only
 
-`internal/navdate/rules.json` holds the cut-off rules, each with an effective date and a source. Redemptions have different rules and different exceptions, and they are out of scope until they can be modeled with the same care.
+`internal/navdate/rules.json` holds the cut-off rules: one per category, with the date it took effect and its source. Rules are not yet chosen by date; a history of rules per category is the next step. Redemptions have different rules and different exceptions, and they are out of scope until they can be modeled with the same care.
 
 ## 8. Tests use a real PostgreSQL, located by an environment variable
 

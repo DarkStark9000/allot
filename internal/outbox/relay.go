@@ -153,8 +153,14 @@ func (r *Relay) submit(ctx context.Context, m store.Message, o order.Order) erro
 	}
 	call, cancel := context.WithTimeout(ctx, r.cfg.CallTimeout)
 	defer cancel()
-	ans, err := r.cfg.Exchange.Submit(call, submitRequest(o))
+	req := submitRequest(o)
+	if plantedNewReference {
+		req.Ref = fmt.Sprintf("%s-%d", req.Ref, m.Attempts)
+	}
+	ans, err := r.cfg.Exchange.Submit(call, req)
 	switch {
+	case errors.Is(err, exchange.ErrTimeout) && plantedTimeoutIsRejection:
+		return r.finish(ctx, m, o.ID, order.ExchangeRejected{Reason: "timeout"})
 	case errors.Is(err, exchange.ErrTimeout):
 		// Not a failure: the exchange may have the order. Ask before doing anything else.
 		return r.finish(ctx, m, o.ID, order.ExchangeTimedOut{})
