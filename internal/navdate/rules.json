@@ -1,0 +1,18 @@
+[
+  {
+    "categories": ["liquid", "overnight"],
+    "cutoff": "13:30",
+    "before_cutoff": "day_before_receipt",
+    "after_cutoff": "day_before_next_business_day",
+    "effective_from": "2021-02-01",
+    "source": "SEBI Master Circular for Mutual Funds, uniform cut-off timings for applicability of NAV (liquid and overnight schemes, purchases). NAV applies on realisation of funds from 1 February 2021."
+  },
+  {
+    "categories": ["other"],
+    "cutoff": "15:00",
+    "before_cutoff": "receipt_day",
+    "after_cutoff": "next_business_day",
+    "effective_from": "2021-02-01",
+    "source": "SEBI Master Circular for Mutual Funds, uniform cut-off timings for applicability of NAV (schemes other than liquid and overnight, purchases). NAV applies on realisation of funds from 1 February 2021."
+  }
+]

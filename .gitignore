@@ -1,0 +1,6 @@
+/allotd
+/chaos
+*.exe
+*.test
+*.out
+/internal/order/testdata/fuzz/
