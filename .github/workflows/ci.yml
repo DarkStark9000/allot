@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: allot
+          POSTGRES_PASSWORD: allot
+          POSTGRES_DB: allot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U allot"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+    env:
+      ALLOT_TEST_DATABASE_URL: postgres://allot:allot@localhost:5432/allot?sslmode=disable
+      ALLOT_DATABASE_URL: postgres://allot:allot@localhost:5432/allot?sslmode=disable
+      ALLOT_REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: vet
+        run: go vet ./...
+      - name: lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.14.0
+          install-mode: goinstall
+      - name: test with the race detector
+        run: go test -race -count=1 ./...
+      - name: fuzz the state machine
+        run: go test -run='^$' -fuzz=FuzzLifecycle -fuzztime=30s ./internal/order
+      - name: chaos, 10 runs of 200 orders
+        run: go run ./cmd/chaos -runs 10 -orders 200
+      - name: known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
