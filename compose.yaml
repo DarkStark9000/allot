@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: allot
+      POSTGRES_PASSWORD: allot
+      POSTGRES_DB: allot
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U allot"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
