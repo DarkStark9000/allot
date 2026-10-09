@@ -42,7 +42,7 @@ Read it this way:
 - **Requests:** 30,446 requests for 10,000 orders. Every racing and retried request either replayed its order (`201`) or waited (`409`), and every reused key with a new body was refused (`422`).
 - **Webhooks:** 28,893 deliveries, duplicates included, never applied an event twice.
 - **Exchange:** 9,410 calls created 8,736 exchange orders, one per submitted order. The extra calls were retries and resubmissions under the same reference.
-- **Findings:** the 394 orders left in `accepted` are exactly the 394 whose registrar row was dropped. Each one has a `missing_allotment` finding, and none was refunded or allotted by guesswork. The 159 `unit_mismatch` rows were held back, not applied.
+- **Findings:** the 394 orders left in `accepted` are the ones the registrar file did not allot: their row was missing, or it was one of the 159 rows with wrong units, which were held back rather than applied. Each of the 394 has a `missing_allotment` finding. None was refunded or allotted by guesswork.
 
 Measured on a laptop: AMD Ryzen AI 7 350, 23 GB RAM, Windows 11, Go 1.27.0, PostgreSQL 18 in Docker. CI repeats ten runs on Linux with the race detector on the test suite.
 
